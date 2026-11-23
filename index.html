@@ -1,0 +1,795 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Campus Connect — The campus that thinks</title>
+<script src="https://cdn.tailwindcss.com/3.4.16"></script>
+<script>
+tailwind.config = { theme: { extend: { colors: {
+  ink: '#0b1f2a', ocean: '#0e3b4a', ocean2: '#1b5163', teal: '#0fa3a3', teallight: '#8fd3d1',
+  coral: '#ff6b4a', corallight: '#ffe6df', sun: '#f6b93b', mist: '#eef5f6', muted: '#5b6b73' },
+  fontFamily: { sans: ['Inter', 'system-ui', 'Segoe UI', 'Roboto', 'sans-serif'] } } } };
+</script>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css">
+<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.4/dist/umd/supabase.js"></script>
+<style>
+  body { background: #f7fafb; color: #0b1f2a; }
+  .chip { border-radius: 9999px; border: 1px solid #cbd5e1; padding: 4px 12px; font-size: 12px; font-weight: 600; color: #5b6b73; background: #fff; }
+  .chip.on { background: #0fa3a3; border-color: #0fa3a3; color: #fff; }
+  .chip.on-coral { background: #ff6b4a; border-color: #ff6b4a; color: #fff; }
+  .chip.on-dark { background: #0e3b4a; border-color: #0e3b4a; color: #fff; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; border-radius: 10px; padding: 9px 16px; font-size: 14px; font-weight: 600; transition: .15s; }
+  .btn:disabled { opacity: .5; cursor: not-allowed; }
+  .btn-teal { background: #0fa3a3; color: #fff; } .btn-teal:hover { background: #0d9191; }
+  .btn-coral { background: #ff6b4a; color: #fff; } .btn-coral:hover { background: #f25b39; }
+  .btn-dark { background: #0e3b4a; color: #fff; } .btn-dark:hover { background: #1b5163; }
+  .btn-light { background: #fff; color: #0e3b4a; border: 1px solid #e2e8f0; } .btn-light:hover { background: #eef5f6; }
+  .card { background: #fff; border: 1px solid #e2e8f0; border-radius: 14px; padding: 16px; box-shadow: 0 1px 2px rgba(11,31,42,.05); }
+  .badge { display: inline-flex; align-items: center; gap: 4px; border-radius: 9999px; padding: 2px 8px; font-size: 11px; font-weight: 700; }
+  .b-teal { background: rgba(15,163,163,.12); color: #0b8383; } .b-coral { background: #ffe6df; color: #e1492a; }
+  .b-sun { background: rgba(246,185,59,.22); color: #9a6a00; } .b-slate { background: #f1f5f9; color: #475569; } .b-ocean { background: #0e3b4a; color: #fff; }
+  .inp { width: 100%; border: 1px solid #cbd5e1; border-radius: 10px; padding: 9px 12px; font-size: 15px; background: #fff; }
+  .inp:focus, .btn:focus-visible, .chip:focus-visible { outline: 2px solid #0fa3a3; outline-offset: 2px; }
+  .nav a { display: flex; align-items: center; gap: 10px; border-radius: 10px; padding: 9px 12px; font-size: 14px; font-weight: 500; color: rgba(238,245,246,.72); }
+  .nav a:hover { background: rgba(255,255,255,.06); color: #fff; } .nav a.active { background: rgba(255,255,255,.12); color: #fff; }
+  .spin { animation: spin 1s linear infinite; } @keyframes spin { to { transform: rotate(360deg); } }
+  .dot { width: 6px; height: 6px; border-radius: 9999px; background: #0fa3a3; display: inline-block; animation: pulse 1s infinite; }
+  @keyframes pulse { 50% { opacity: .3; } }
+  .leaflet-container { font: inherit; border-radius: 14px; }
+  .pin { border: 2px solid #fff; border-radius: 9999px; box-shadow: 0 1px 4px rgba(0,0,0,.35); display: flex; align-items: center; justify-content: center; color: #fff; font: 700 11px Inter, sans-serif; }
+  .orbit { transform-origin: 260px 230px; animation: orbit 60s linear infinite; } @keyframes orbit { to { transform: rotate(360deg); } }
+  html { scroll-behavior: smooth; }
+  @media (prefers-reduced-motion: reduce) { .spin, .dot, .orbit { animation: none; } html { scroll-behavior: auto; } }
+</style>
+</head>
+<body class="antialiased">
+
+<!-- LANDING -->
+<div id="landing" class="hidden bg-white">
+  <header class="sticky top-0 z-40 border-b border-white/10 bg-ocean/95 backdrop-blur">
+    <div class="mx-auto flex max-w-6xl items-center gap-6 px-5 py-3">
+      <a href="#home" class="flex items-center gap-2.5"><span class="flex h-9 w-9 items-center justify-center rounded-full bg-coral"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 5a3 3 0 1 0-5.99.14 4 4 0 0 0-2.53 5.77 4 4 0 0 0 .56 6.59A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.99.14 4 4 0 0 1 2.53 5.77 4 4 0 0 1-.56 6.59A4 4 0 1 1 12 18Z"/></svg></span><span class="font-bold text-white">Campus Connect</span></a>
+      <nav class="ml-auto hidden items-center gap-6 text-sm font-medium text-mist/80 md:flex"><a href="#problem" data-scroll class="hover:text-white">Problem</a><a href="#how" data-scroll class="hover:text-white">How it works</a><a href="#features" data-scroll class="hover:text-white">Features</a><a href="#demo" data-scroll class="hover:text-white">Demo</a></nav>
+      <a href="#login" class="cta btn btn-coral ml-auto px-4 py-2 md:ml-0">Try the live demo</a>
+    </div>
+  </header>
+
+  <!-- HERO -->
+  <section class="relative overflow-hidden bg-ocean text-white">
+    <div class="mx-auto grid max-w-6xl items-center gap-10 px-5 py-16 lg:grid-cols-[1.05fr_1fr] lg:py-24">
+      <div>
+        <p class="text-sm font-bold tracking-widest text-teallight">GOA BUILDATHON 2027</p>
+        <h1 class="mt-4 text-5xl font-extrabold leading-[1.05] sm:text-6xl">The campus<br>that <span class="text-coral">thinks.</span></h1>
+        <p class="mt-6 max-w-xl text-lg text-mist/85">Campus Connect turns scattered notices, hidden talent and untracked problems into one intelligent system that moves students from a need to a solution.</p>
+        <div class="mt-8 flex flex-wrap gap-3"><a href="#login" class="cta btn btn-coral px-6 py-3 text-base">Try the live demo</a><a href="#how" data-scroll class="btn border border-white/30 px-6 py-3 text-base text-white hover:bg-white/10">See how it works</a></div>
+        <p class="mt-6 text-sm text-mist/60">One AI loop · Five connected engines · One campus</p>
+      </div>
+      <div class="relative mx-auto w-full max-w-[520px]">
+        <svg viewBox="0 0 520 460" class="w-full" role="img" aria-label="The Campus Connect action loop">
+          <circle cx="260" cy="230" r="170" fill="none" stroke="#8fd3d1" stroke-width="1.5" stroke-dasharray="6 8" class="orbit"/>
+          <g stroke="#8fd3d1" stroke-opacity=".45" stroke-width="1.5">
+            <line x1="260" y1="230" x2="260" y2="60"/><line x1="260" y1="230" x2="422" y2="177"/><line x1="260" y1="230" x2="360" y2="368"/><line x1="260" y1="230" x2="160" y2="368"/><line x1="260" y1="230" x2="98" y2="177"/>
+          </g>
+          <circle cx="260" cy="230" r="78" fill="#ff6b4a" fill-opacity=".22"/><circle cx="260" cy="230" r="62" fill="#ff6b4a"/>
+          <g transform="translate(232 202) scale(2.35)" fill="none" stroke="#fff" stroke-width="1.6" stroke-linecap="round"><path d="M12 5a3 3 0 1 0-5.99.14 4 4 0 0 0-2.53 5.77 4 4 0 0 0 .56 6.59A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.99.14 4 4 0 0 1 2.53 5.77 4 4 0 0 1-.56 6.59A4 4 0 1 1 12 18Z"/><path d="M12 5v13"/></g>
+          <g font-family="Inter, sans-serif" font-size="14" font-weight="700" text-anchor="middle" fill="#0e3b4a" letter-spacing="1">
+            <rect x="200" y="40" width="120" height="40" rx="20" fill="#fff"/><text x="260" y="65">CONNECT</text>
+            <rect x="352" y="157" width="140" height="40" rx="20" fill="#fff"/><text x="422" y="182">UNDERSTAND</text>
+            <rect x="300" y="348" width="120" height="40" rx="20" fill="#fff"/><text x="360" y="373">MATCH</text>
+            <rect x="100" y="348" width="120" height="40" rx="20" fill="#fff"/><text x="160" y="373">ACT</text>
+            <rect x="38" y="157" width="120" height="40" rx="20" fill="#fff"/><text x="98" y="182">LEARN</text>
+          </g>
+        </svg>
+      </div>
+    </div>
+  </section>
+
+  <!-- PROBLEM -->
+  <section id="problem" class="mx-auto max-w-6xl px-5 py-20">
+    <p class="text-sm font-bold tracking-widest text-teal">THE PROBLEM</p>
+    <h2 class="mt-3 max-w-3xl text-4xl font-extrabold leading-tight">Campus life is digitally fragmented</h2>
+    <p class="mt-4 max-w-2xl text-lg text-muted">Students, resources, opportunities and services exist, but rarely work as one connected system.</p>
+    <div class="mt-10 grid gap-5 md:grid-cols-3">
+      <div class="rounded-2xl bg-mist p-7"><span class="flex h-12 w-12 items-center justify-center rounded-full bg-coral text-white"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="m12 2 9 5-9 5-9-5 9-5Z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/></svg></span><h3 class="mt-5 text-xl font-bold">Information is scattered</h3><p class="mt-2 text-muted">Notices, deadlines and events live across websites, chats, email and social channels.</p></div>
+      <div class="rounded-2xl bg-mist p-7"><span class="flex h-12 w-12 items-center justify-center rounded-full bg-teal text-white"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="9" cy="8" r="4"/><path d="M2 21v-1a6 6 0 0 1 12 0v1"/><path d="M16 4a4 4 0 0 1 0 8"/><path d="M22 21v-1a6 6 0 0 0-4-5.6"/></svg></span><h3 class="mt-5 text-xl font-bold">Talent is invisible</h3><p class="mt-2 text-muted">Students struggle to find teammates, mentors and skills outside their own circle.</p></div>
+      <div class="rounded-2xl bg-mist p-7"><span class="flex h-12 w-12 items-center justify-center rounded-full bg-sun text-white"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M10.3 3.9 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.9a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></span><h3 class="mt-5 text-xl font-bold">Problems go untracked</h3><p class="mt-2 text-muted">Campus issues are reported informally, with little visibility into status or patterns.</p></div>
+    </div>
+    <div class="mt-12 grid gap-5 lg:grid-cols-2">
+      <div class="rounded-2xl border border-slate-200 p-7"><p class="font-bold text-muted">Today</p><ol class="mt-4 grid gap-2 text-[15px]">
+        <li class="rounded-lg bg-mist px-4 py-2.5">1 · Searches for information</li><li class="rounded-lg bg-mist px-4 py-2.5">2 · Switches between apps</li><li class="rounded-lg bg-mist px-4 py-2.5">3 · Asks around in groups</li><li class="rounded-lg bg-mist px-4 py-2.5">4 · Waits for a reply</li><li class="rounded-lg bg-coral px-4 py-2.5 font-semibold text-white">5 · Gives up</li></ol></div>
+      <div class="rounded-2xl bg-ocean p-7 text-white"><p class="font-bold text-teallight">With Campus Connect</p><ol class="mt-4 grid gap-2 text-[15px]">
+        <li class="rounded-lg bg-ocean2 px-4 py-2.5">1 · Expresses a need</li><li class="rounded-lg bg-ocean2 px-4 py-2.5">2 · AI understands it</li><li class="rounded-lg bg-ocean2 px-4 py-2.5">3 · Matches the right resources</li><li class="rounded-lg bg-ocean2 px-4 py-2.5">4 · Enables action</li><li class="rounded-lg bg-teal px-4 py-2.5 font-semibold">5 · Tracks the outcome</li></ol></div>
+    </div>
+  </section>
+
+  <!-- HOW -->
+  <section id="how" class="bg-mist">
+    <div class="mx-auto max-w-6xl px-5 py-20">
+      <p class="text-sm font-bold tracking-widest text-teal">HOW IT WORKS</p>
+      <h2 class="mt-3 text-4xl font-extrabold leading-tight">One loop powers everything</h2>
+      <p class="mt-4 max-w-2xl text-lg text-muted">Every feature follows the same pattern: understand a need, connect the right resources, help move it forward, then learn from the result.</p>
+      <div class="mt-12 grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <div class="rounded-2xl bg-white p-6"><p class="text-sm font-bold text-teal">01</p><h3 class="mt-2 text-lg font-bold">Connect</h3><p class="mt-1 text-sm text-muted">Campus data, needs, skills and resources in one place.</p></div>
+        <div class="rounded-2xl bg-white p-6"><p class="text-sm font-bold text-teal">02</p><h3 class="mt-2 text-lg font-bold">Understand</h3><p class="mt-1 text-sm text-muted">AI identifies what the student wants and the context.</p></div>
+        <div class="rounded-2xl bg-white p-6"><p class="text-sm font-bold text-teal">03</p><h3 class="mt-2 text-lg font-bold">Match</h3><p class="mt-1 text-sm text-muted">People, places, services and opportunities that fit.</p></div>
+        <div class="rounded-2xl bg-coral p-6 text-white"><p class="text-sm font-bold text-white/80">04</p><h3 class="mt-2 text-lg font-bold">Act</h3><p class="mt-1 text-sm text-white/90">A plan, invite or report, created only when you approve.</p></div>
+        <div class="rounded-2xl bg-white p-6"><p class="text-sm font-bold text-teal">05</p><h3 class="mt-2 text-lg font-bold">Learn</h3><p class="mt-1 text-sm text-muted">Outcomes and feedback make the next answer better.</p></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- FEATURES -->
+  <section id="features" class="mx-auto max-w-6xl px-5 py-20">
+    <p class="text-sm font-bold tracking-widest text-teal">FIVE ENGINES</p>
+    <h2 class="mt-3 text-4xl font-extrabold leading-tight">One connected experience</h2>
+    <div class="mt-14 grid gap-20">
+      <div class="grid items-center gap-10 lg:grid-cols-2">
+        <div><span class="badge b-coral">AI CAMPUS BRAIN</span><h3 class="mt-3 text-3xl font-bold">Ask anything. Get it done.</h3><p class="mt-3 text-lg text-muted">A campus-aware assistant that answers only from verified campus information, and turns a plain-language request into teammates, opportunities and a plan.</p>
+          <ul class="mt-5 grid gap-2 text-[15px]"><li>✓ Answers with the source it used</li><li>✓ Prepares drafts; nothing is sent until you approve</li><li>✓ Never shares other students' contact details</li></ul></div>
+        <div class="rounded-2xl bg-mist p-6"><div class="ml-auto w-fit max-w-[85%] rounded-2xl bg-ocean px-4 py-3 text-sm text-white">I want to build an AI waste solution. Help me find a team.</div>
+          <div class="mt-3 max-w-[90%] rounded-2xl bg-white px-4 py-3 text-sm shadow-sm">Here's a team with the skills your idea needs, an opportunity to aim for, and a first plan.</div>
+          <div class="mt-3 grid grid-cols-2 gap-2"><div class="rounded-xl bg-white p-3 text-xs shadow-sm"><b>Rohan Verma</b><br><span class="text-muted">IoT · level 5</span></div><div class="rounded-xl bg-white p-3 text-xs shadow-sm"><b>Ananya Iyer</b><br><span class="text-muted">UI / UX · level 5</span></div></div>
+          <div class="mt-3 rounded-xl border border-ocean/20 bg-white p-3 text-xs shadow-sm"><span class="badge b-ocean">PROJECT PLAN</span> <b class="ml-1">AI waste solution</b> · 4 weeks · <span class="font-semibold text-teal">Approve &amp; send invites</span></div></div>
+      </div>
+      <div class="grid items-center gap-10 lg:grid-cols-2">
+        <div class="lg:order-2"><span class="badge b-teal">TALENT GRAPH</span><h3 class="mt-3 text-3xl font-bold">Find the people who complete your team</h3><p class="mt-3 text-lg text-muted">Matches on complementary skills, shared interests, availability and diverse backgrounds. Every suggestion shows why.</p>
+          <p class="mt-5 rounded-xl bg-mist px-4 py-3 font-mono text-sm">score = 55% skills + 20% interests + 15% availability + 10% diversity</p></div>
+        <div class="rounded-2xl bg-mist p-4 lg:order-1"><svg viewBox="0 0 460 260" class="w-full" role="img" aria-label="Team graph"><g stroke="#8fd3d1" stroke-width="2"><line x1="230" y1="130" x2="90" y2="60"/><line x1="230" y1="130" x2="370" y2="60"/><line x1="230" y1="130" x2="90" y2="200"/><line x1="230" y1="130" x2="370" y2="200"/></g><circle cx="230" cy="130" r="36" fill="#ff6b4a"/><text x="230" y="136" text-anchor="middle" font-size="15" font-weight="800" fill="#fff" font-family="Inter">IDEA</text>
+          <g font-family="Inter" text-anchor="middle"><circle cx="90" cy="60" r="24" fill="#0fa3a3"/><text x="90" y="65" font-size="12" font-weight="700" fill="#fff">RV</text><text x="90" y="102" font-size="12" font-weight="600" fill="#0b1f2a">IoT</text>
+          <circle cx="370" cy="60" r="24" fill="#0fa3a3"/><text x="370" y="65" font-size="12" font-weight="700" fill="#fff">AI</text><text x="370" y="102" font-size="12" font-weight="600" fill="#0b1f2a">UI / UX</text>
+          <circle cx="90" cy="200" r="24" fill="#0fa3a3"/><text x="90" y="205" font-size="12" font-weight="700" fill="#fff">MN</text><text x="90" y="242" font-size="12" font-weight="600" fill="#0b1f2a">Pitching</text>
+          <circle cx="370" cy="200" r="24" fill="#0fa3a3"/><text x="370" y="205" font-size="12" font-weight="700" fill="#fff">NP</text><text x="370" y="242" font-size="12" font-weight="600" fill="#0b1f2a">AI / ML</text></g></svg></div>
+      </div>
+      <div class="grid items-center gap-10 lg:grid-cols-2">
+        <div><span class="badge b-teal">CAMPUS DIGITAL TWIN</span><h3 class="mt-3 text-3xl font-bold">A map that has meaning</h3><p class="mt-3 text-lg text-muted">Every building, this week's events and open issues on one live map. Click a place to see what's happening there, or report a problem exactly where it is.</p></div>
+        <div class="relative h-64 overflow-hidden rounded-2xl bg-[#e3eef0]"><div class="absolute inset-x-0 top-[46%] h-4 bg-white"></div><div class="absolute inset-y-0 left-[42%] w-4 bg-white"></div>
+          <div class="absolute left-[6%] top-[8%] h-[32%] w-[32%] rounded-lg bg-[#d3e1e4]"></div><div class="absolute left-[50%] top-[8%] h-[32%] w-[44%] rounded-lg bg-[#d3e1e4]"></div><div class="absolute left-[6%] top-[60%] h-[32%] w-[32%] rounded-lg bg-[#d3e1e4]"></div><div class="absolute left-[50%] top-[60%] h-[32%] w-[44%] rounded-lg bg-[#cfe9e3]"></div>
+          <span class="pin absolute left-[18%] top-[18%] h-5 w-5 bg-teal"></span><span class="pin absolute left-[64%] top-[20%] h-7 w-7 bg-coral">7</span><span class="pin absolute left-[80%] top-[70%] h-6 w-6 bg-sun">2</span><span class="pin absolute left-[20%] top-[72%] h-5 w-5 bg-teal"></span>
+          <div class="absolute left-[48%] top-[36%] rounded-xl bg-white px-3 py-2 text-xs shadow"><b>Hostel B</b><br><span class="text-muted">Wi-Fi · 7 reports · High</span></div></div>
+      </div>
+      <div class="grid items-center gap-10 lg:grid-cols-2">
+        <div class="lg:order-2"><span class="badge b-sun">OPPORTUNITY ENGINE</span><h3 class="mt-3 text-3xl font-bold">The right opportunity, at the right time</h3><p class="mt-3 text-lg text-muted">Hackathons, internships, scholarships and workshops ranked for each student, filtered by eligibility, with the reason it was suggested and a verified badge.</p></div>
+        <div class="grid gap-2 rounded-2xl bg-mist p-5 lg:order-1">
+          <div class="rounded-xl bg-white p-3 text-sm shadow-sm"><b>Smart Campus Hackathon 2027</b> <span class="badge b-coral ml-1">hackathon</span><p class="mt-1 text-xs font-semibold text-teal">Why you: matches AI / ML, sustainability · closes in 9 days</p></div>
+          <div class="rounded-xl bg-white p-3 text-sm shadow-sm"><b>AI for Good Fellowship</b> <span class="badge b-ocean ml-1">research</span><p class="mt-1 text-xs font-semibold text-teal">Why you: matches AI / ML · open to year 3+</p></div>
+          <div class="rounded-xl bg-white p-3 text-sm shadow-sm"><b>Green Tech Challenge</b> <span class="badge b-coral ml-1">competition</span><p class="mt-1 text-xs font-semibold text-teal">Why you: matches sustainability, climate</p></div></div>
+      </div>
+      <div class="grid items-center gap-10 lg:grid-cols-2">
+        <div><span class="badge b-coral">CAMPUS PULSE</span><h3 class="mt-3 text-3xl font-bold">Reports become resolutions</h3><p class="mt-3 text-lg text-muted">Duplicate reports are grouped automatically, prioritised by transparent rules and routed to the right team. Every reporter is told when it's fixed.</p>
+          <p class="mt-5 rounded-xl bg-corallight px-4 py-3 text-sm"><b>People stay in charge:</b> the system groups and suggests; staff verify and assign.</p></div>
+        <div class="grid grid-cols-3 gap-2 rounded-2xl bg-mist p-4 text-xs">
+          <div><p class="mb-2 font-bold">Open</p><div class="rounded-lg bg-white p-2 shadow-sm"><span class="badge b-coral">high</span><p class="mt-1 font-semibold">Wi-Fi · Hostel B</p><p class="text-muted">7 reports</p></div></div>
+          <div><p class="mb-2 font-bold">In progress</p><div class="rounded-lg bg-white p-2 shadow-sm"><span class="badge b-sun">medium</span><p class="mt-1 font-semibold">Water · Hostel A</p><p class="text-muted">2 reports</p></div></div>
+          <div><p class="mb-2 font-bold">Resolved</p><div class="rounded-lg bg-white p-2 shadow-sm"><span class="badge b-slate">done</span><p class="mt-1 font-semibold">Canteen bins</p><p class="text-muted">2 reports</p></div></div></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- DEMO -->
+  <section id="demo" class="bg-ocean text-white">
+    <div class="mx-auto grid max-w-6xl gap-12 px-5 py-20 lg:grid-cols-2">
+      <div>
+        <p class="text-sm font-bold tracking-widest text-teallight">THE LIVE DEMO</p>
+        <h2 class="mt-3 text-4xl font-extrabold leading-tight">One story. Five connected actions.</h2>
+        <p class="mt-4 text-lg text-mist/80">“I want to build an AI waste solution. Help me find a team.”</p>
+        <div class="mt-8 rounded-2xl bg-white p-6 text-ink">
+          <p class="font-bold">Try it now: one click, no sign-up</p>
+          <p class="mt-1 text-sm text-muted">Open two windows to see staff and students update live.</p>
+          <div class="mt-4 grid gap-3 sm:grid-cols-2"><button class="btn btn-dark" data-demo="student@demo.app">Try as Student</button><button class="btn btn-light" data-demo="staff@demo.app">Try as Campus Staff</button></div>
+          <p class="mt-3 text-xs text-muted">All students, opportunities and campus facts are demo data.</p>
+        </div>
+      </div>
+      <ol class="grid content-center gap-4">
+        <li class="flex gap-4"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal font-bold">01</span><div><p class="font-bold">Ask</p><p class="text-mist/75">The student describes the idea in plain language.</p></div></li>
+        <li class="flex gap-4"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal font-bold">02</span><div><p class="font-bold">Understand</p><p class="text-mist/75">AI extracts the goal and the skills the team is missing.</p></div></li>
+        <li class="flex gap-4"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal font-bold">03</span><div><p class="font-bold">Match</p><p class="text-mist/75">Talent Graph suggests opt-in teammates with complementary skills.</p></div></li>
+        <li class="flex gap-4"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-teal font-bold">04</span><div><p class="font-bold">Act</p><p class="text-mist/75">One click creates the project, sends invites and finds a hackathon.</p></div></li>
+        <li class="flex gap-4"><span class="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-coral font-bold">05</span><div><p class="font-bold">Report</p><p class="text-mist/75">A campus issue is mapped, grouped with 6 others and routed to the IT Cell.</p></div></li>
+      </ol>
+    </div>
+  </section>
+
+  <!-- TRUST + TECH -->
+  <section class="mx-auto max-w-6xl px-5 py-20">
+    <div class="grid gap-12 lg:grid-cols-2">
+      <div><p class="text-sm font-bold tracking-widest text-teal">BUILT RESPONSIBLY</p><h2 class="mt-3 text-3xl font-extrabold">Trust is part of the design</h2>
+        <div class="mt-6 grid gap-4 sm:grid-cols-2">
+          <div class="rounded-2xl bg-mist p-5"><p class="font-bold">Opt-in profiles</p><p class="mt-1 text-sm text-muted">Students choose to be discoverable. Emails stay private.</p></div>
+          <div class="rounded-2xl bg-mist p-5"><p class="font-bold">AI proposes, you approve</p><p class="mt-1 text-sm text-muted">No invite or report is sent without a click.</p></div>
+          <div class="rounded-2xl bg-mist p-5"><p class="font-bold">Verified sources</p><p class="mt-1 text-sm text-muted">Campus answers come from campus data, with the source shown.</p></div>
+          <div class="rounded-2xl bg-mist p-5"><p class="font-bold">Aggregated insights</p><p class="mt-1 text-sm text-muted">Analytics show counts, never who reported what.</p></div>
+        </div></div>
+      <div><p class="text-sm font-bold tracking-widest text-teal">TECHNOLOGY</p><h2 class="mt-3 text-3xl font-extrabold">Buildable today, ready to pilot</h2>
+        <div class="mt-6 flex flex-wrap gap-2 text-sm font-semibold">
+          <span class="rounded-full bg-ocean px-4 py-2 text-white">Supabase Postgres</span><span class="rounded-full bg-ocean px-4 py-2 text-white">Row Level Security</span><span class="rounded-full bg-ocean px-4 py-2 text-white">Realtime</span><span class="rounded-full bg-ocean px-4 py-2 text-white">Edge Functions</span><span class="rounded-full bg-coral px-4 py-2 text-white">Google Gemini</span><span class="rounded-full bg-teal px-4 py-2 text-white">Leaflet + OpenStreetMap</span><span class="rounded-full bg-teal px-4 py-2 text-white">Tailwind CSS</span></div>
+        <div class="mt-8 grid grid-cols-4 gap-2 text-center text-xs font-bold">
+          <div class="rounded-xl bg-mist px-2 py-4"><p class="text-coral">NOW</p><p class="mt-1 text-muted">Validate</p></div><div class="rounded-xl bg-mist px-2 py-4"><p class="text-teal">MVP</p><p class="mt-1 text-muted">Build</p></div><div class="rounded-xl bg-mist px-2 py-4"><p class="text-teal">PILOT</p><p class="mt-1 text-muted">Test</p></div><div class="rounded-xl bg-mist px-2 py-4"><p class="text-ocean">SCALE</p><p class="mt-1 text-muted">Expand</p></div></div></div>
+    </div>
+  </section>
+
+  <!-- CTA -->
+  <section class="bg-coral text-white"><div class="mx-auto flex max-w-6xl flex-wrap items-center justify-between gap-6 px-5 py-14"><div><h2 class="text-3xl font-extrabold">See the campus that thinks.</h2><p class="mt-2 text-white/90">From a need to a solution: connected, understood, matched, acted on and learned from.</p></div><a href="#login" class="cta btn bg-white px-6 py-3 text-base text-coral hover:bg-white/90">Try the live demo</a></div></section>
+  <footer class="bg-ocean text-mist/60"><div class="mx-auto flex max-w-6xl flex-wrap justify-between gap-3 px-5 py-6 text-sm"><span><b class="text-white">Campus Connect</b> · Goa Buildathon 2027</span><span>Prototype with demo data</span></div></footer>
+</div>
+
+<!-- LOGIN -->
+<div id="login" class="hidden min-h-screen lg:grid lg:grid-cols-2">
+  <div class="hidden flex-col justify-between bg-ocean p-12 text-white lg:flex">
+    <p class="text-sm font-bold tracking-widest text-teallight">GOA BUILDATHON 2027</p>
+    <div>
+      <div class="mb-6 flex h-16 w-16 items-center justify-center rounded-full bg-coral">
+        <svg width="34" height="34" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round"><path d="M12 5a3 3 0 1 0-5.99.14 4 4 0 0 0-2.53 5.77 4 4 0 0 0 .56 6.59A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.99.14 4 4 0 0 1 2.53 5.77 4 4 0 0 1-.56 6.59A4 4 0 1 1 12 18Z"/><path d="M12 5v13"/></svg>
+      </div>
+      <h1 class="text-5xl font-extrabold">Campus Connect</h1>
+      <p class="mt-3 text-2xl font-bold text-coral">The campus that thinks</p>
+      <p class="mt-6 max-w-md text-lg text-mist/90">An intelligent ecosystem that turns campus needs, talent, resources and opportunities into real action.</p>
+    </div>
+    <div class="flex flex-wrap gap-2 text-xs font-bold tracking-wider text-ocean">
+      <span class="rounded-full bg-white px-3 py-1">CONNECT</span><span class="rounded-full bg-white px-3 py-1">UNDERSTAND</span><span class="rounded-full bg-white px-3 py-1">MATCH</span><span class="rounded-full bg-white px-3 py-1">ACT</span><span class="rounded-full bg-white px-3 py-1">LEARN</span>
+    </div>
+  </div>
+  <div class="flex min-h-screen items-center justify-center p-6">
+    <div class="w-full max-w-sm">
+      <a href="#home" class="mb-6 inline-block text-sm font-semibold text-teal hover:underline">← Back to home</a>
+      <h2 id="loginTitle" class="text-2xl font-bold">Sign in</h2>
+      <p class="mt-1 text-sm text-muted">Judges: use a demo account, one click.</p>
+      <div class="mt-6 grid gap-3">
+        <button class="btn btn-dark" data-demo="student@demo.app">Try as Student</button>
+        <button class="btn btn-light" data-demo="staff@demo.app">Try as Campus Staff</button>
+      </div>
+      <div class="my-6 flex items-center gap-3 text-xs text-muted"><div class="h-px flex-1 bg-slate-200"></div>or use your email<div class="h-px flex-1 bg-slate-200"></div></div>
+      <form id="loginForm" class="grid gap-3">
+        <input id="lEmail" class="inp" type="email" placeholder="Email" required>
+        <input id="lPass" class="inp" type="password" placeholder="Password (6+ characters)" minlength="6" required>
+        <button class="btn btn-teal" type="submit" id="lBtn">Sign in</button>
+      </form>
+      <p id="loginMsg" class="mt-3 hidden rounded-lg bg-corallight p-3 text-sm text-coral"></p>
+      <button id="lToggle" class="mt-4 text-sm font-medium text-teal hover:underline">New here? Create an account</button>
+    </div>
+  </div>
+</div>
+
+<!-- APP -->
+<div id="app" class="hidden">
+  <button id="menuBtn" class="fixed left-3 top-3 z-40 rounded-lg bg-ocean px-3 py-2 text-sm font-semibold text-white lg:hidden">Menu</button>
+  <aside id="side" class="fixed inset-y-0 left-0 z-30 flex w-64 -translate-x-full flex-col bg-ocean p-4 transition-transform lg:translate-x-0">
+    <a href="#assistant" class="mb-8 mt-12 flex items-center gap-3 px-2 lg:mt-2">
+      <span class="flex h-9 w-9 items-center justify-center rounded-full bg-coral"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2"><path d="M12 5a3 3 0 1 0-5.99.14 4 4 0 0 0-2.53 5.77 4 4 0 0 0 .56 6.59A4 4 0 1 0 12 18Z"/><path d="M12 5a3 3 0 1 1 5.99.14 4 4 0 0 1 2.53 5.77 4 4 0 0 1-.56 6.59A4 4 0 1 1 12 18Z"/></svg></span>
+      <span><span class="block font-bold text-white">Campus Connect</span><span class="block text-xs text-teallight">The campus that thinks</span></span>
+    </a>
+    <nav class="nav grid gap-1" id="nav">
+      <a href="#home">Home page</a>
+      <a href="#assistant">Assistant</a>
+      <a href="#teams">Talent Graph</a>
+      <a href="#projects">My Projects</a>
+      <a href="#map">Campus Map</a>
+      <a href="#opportunities">Opportunities</a>
+      <a href="#pulse">Campus Pulse</a>
+      <a href="#analytics">Analytics</a>
+    </nav>
+    <div class="nav mt-auto grid gap-1 border-t border-white/10 pt-4">
+      <a href="#notifications"><span class="flex-1">Notifications</span><span id="unread" class="hidden rounded-full bg-coral px-2 text-xs font-bold text-white"></span></a>
+      <a href="#profile">Profile</a>
+      <p class="px-3 py-2 text-xs text-mist/60">Signed in as <b id="meName" class="text-white"></b> <span id="meRole" class="ml-1 rounded bg-white/10 px-1.5 py-0.5 capitalize"></span></p>
+      <a href="#" id="logout">Sign out</a>
+      <p class="px-3 pt-1 text-[11px] text-mist/40">Demo data · Goa Buildathon 2027</p>
+    </div>
+  </aside>
+  <main class="lg:pl-64"><div id="view" class="mx-auto max-w-6xl px-4 py-16 sm:px-8 lg:py-8"></div></main>
+</div>
+
+<div id="toast" class="fixed bottom-4 left-1/2 z-50 hidden -translate-x-1/2 rounded-xl bg-ink px-4 py-3 text-sm font-medium text-white shadow-lg"></div>
+
+<script>
+{
+// ===== CONFIG =====
+const SUPABASE_URL = 'https://psyjljccsdhmshhthnyk.supabase.co';
+const SUPABASE_KEY = 'sb_publishable_zfV_XhxWUQkyeg8gnE1b5A_WDW0qbeH';
+const COLLEGE_NAME = 'Demo Institute of Technology';
+const DEMO_PASSWORD = 'CampusDemo#2027';
+const SKILLS = { ai_ml: 'AI / ML', iot: 'IoT', hardware: 'Hardware', web_dev: 'Web Dev', mobile: 'Mobile', ui_ux: 'UI / UX', design: 'Graphic Design', data: 'Data Analysis', cloud: 'Cloud / DevOps', pitch: 'Pitching', marketing: 'Marketing', research: 'Research' };
+const INTERESTS = ['sustainability', 'climate', 'healthcare', 'education', 'fintech', 'agritech', 'smart-campus', 'robotics', 'gaming', 'social-impact', 'mobility', 'accessibility'];
+const BRANCHES = ['CSE', 'AI/ML', 'IT', 'ECE', 'EEE', 'Mechanical', 'Civil', 'Design', 'Management'];
+const CATS = { electrical: 'Electrical', water: 'Water', wifi: 'Wi-Fi', cleanliness: 'Cleanliness', safety: 'Safety', other: 'Other' };
+const STATUSES = ['open', 'assigned', 'in_progress', 'resolved'];
+const STATUS_LABEL = { open: 'Open', assigned: 'Assigned', in_progress: 'In progress', resolved: 'Resolved' };
+const PRIO_BADGE = { high: 'b-coral', medium: 'b-sun', low: 'b-slate' };
+const TYPE_BADGE = { hackathon: 'b-coral', competition: 'b-coral', internship: 'b-teal', scholarship: 'b-sun', workshop: 'b-slate', research: 'b-ocean' };
+
+const sb = supabase.createClient(SUPABASE_URL, SUPABASE_KEY);
+const $ = (s) => document.querySelector(s);
+const view = $('#view');
+const esc = (v) => String(v ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const fmtDate = (d, o) => new Date(d).toLocaleString('en-IN', o);
+const toast = (msg) => { const t = $('#toast'); t.textContent = msg; t.classList.remove('hidden'); clearTimeout(t._h); t._h = setTimeout(() => t.classList.add('hidden'), 3500); };
+const header = (title, sub, extra = '') => `<div class="mb-6 flex flex-wrap items-end justify-between gap-4"><div><h1 class="text-2xl font-bold">${title}</h1>${sub ? `<p class="mt-1 max-w-3xl text-sm text-muted">${sub}</p>` : ''}</div>${extra}</div>`;
+const loading = () => { view.innerHTML = '<div class="flex items-center gap-2 py-10 text-sm text-muted"><span class="dot"></span> Loading…</div>'; };
+async function rpc(fn, args) { const { data, error } = await sb.rpc(fn, args); if (error) throw new Error(error.message); return data; }
+
+let session = null, me = null, chat = [], aiMode = 'unknown';
+const cache = {};
+async function load(name, force) {
+  if (cache[name] && !force) return cache[name];
+  const q = {
+    locations: () => sb.from('locations').select('*').order('name'),
+    knowledge: () => sb.from('knowledge').select('title,content,source'),
+    events: () => sb.from('events').select('*, locations(name)').gte('ends_at', new Date().toISOString()).order('starts_at'),
+    opportunities: () => sb.from('opportunities').select('*'),
+    profiles: () => sb.from('profiles').select('id,full_name,branch,year,bio,skills,interests,availability').eq('is_discoverable', true).eq('role', 'student'),
+  }[name];
+  const { data, error } = await q();
+  if (error) throw new Error(error.message);
+  return (cache[name] = data || []);
+}
+
+// ===== TEXT HELPERS =====
+const STOP = new Set('a an the is are was were in on at of to for and or not no it its this that with from by be has have had my our we i near very me can you please what when where how do does any'.split(' '));
+const words = (t) => new Set(String(t).toLowerCase().replace(/wi[\s-]?fi/g, 'wifi').split(/[^a-z0-9]+/).filter((w) => w && !STOP.has(w)));
+function searchFacts(q, k = 4) {
+  const qw = words(q);
+  return (cache.knowledge || []).map((r) => { const w = words(r.title + ' ' + r.title + ' ' + r.content); let h = 0; qw.forEach((x) => w.has(x) && h++); return { ...r, score: qw.size ? h / qw.size : 0 }; })
+    .filter((r) => r.score > 0).sort((a, b) => b.score - a.score).slice(0, k);
+}
+function findLocation(name) {
+  const L = cache.locations || [], q = String(name || '').toLowerCase().trim();
+  if (!q) return null;
+  return L.find((l) => l.name.toLowerCase() === q) || L.find((l) => q.includes(l.name.toLowerCase()) || l.name.toLowerCase().includes(q)) ||
+    L.map((l) => { const a = words(l.name), b = words(q); let s = 0; a.forEach((x) => b.has(x) && s++); return { l, s }; }).sort((a, b) => b.s - a.s).find((x) => x.s > 0)?.l || null;
+}
+
+// ===== MATCHING (score = 0.55 skill + 0.20 interest + 0.15 availability + 0.10 diversity) =====
+const AVAIL = { high: 1, medium: 0.6, low: 0.2 };
+function scoreCand(c, need, picked) {
+  const have = need.skills.filter((s) => (c.skills?.[s] || 0) > 0);
+  const skill = have.length ? have.reduce((a, s) => a + c.skills[s] / 5, 0) / have.length : 0;
+  const ints = c.interests || [], shared = ints.filter((i) => need.tags.includes(i)).length, union = new Set([...ints, ...need.tags]).size;
+  const interest = union ? shared / union : 0, avail = AVAIL[c.availability] ?? 0.6;
+  const diversity = picked.every((p) => p.branch !== c.branch || p.year !== c.year) ? 1 : 0;
+  return { total: 0.55 * skill + 0.2 * interest + 0.15 * avail + 0.1 * diversity, have, diversity };
+}
+function buildTeam(cands, need, size = 4) {
+  const rest = cands.filter((c) => c.id !== me.id), picked = [], team = [], uncovered = new Set(need.skills);
+  while (team.length < size && rest.length) {
+    let best = null;
+    rest.forEach((c, idx) => { const s = scoreCand(c, need, picked); if (uncovered.size && !s.have.some((k) => uncovered.has(k))) return; if (!best || s.total > best.s.total) best = { c, s, idx }; });
+    if (!best) break;
+    const { c, s, idx } = best; rest.splice(idx, 1); picked.push(c);
+    const covers = s.have.filter((k) => uncovered.has(k)); covers.forEach((k) => uncovered.delete(k));
+    const why = [];
+    if (covers.length) why.push('Covers ' + covers.map((k) => `${SKILLS[k]} (level ${c.skills[k]})`).join(', '));
+    const si = (c.interests || []).filter((i) => need.tags.includes(i)); if (si.length) why.push('interested in ' + si.join(', '));
+    why.push(`${c.availability} availability`); if (s.diversity) why.push(`different background (${c.branch})`);
+    team.push({ ...c, score: Math.round(s.total * 100), covers, reason: why.join(' · ') });
+    if (!uncovered.size && team.length >= need.skills.length) break;
+  }
+  return { team, uncovered: [...uncovered] };
+}
+
+// ===== OPPORTUNITIES =====
+const daysLeft = (d) => d ? Math.ceil((Date.parse(d) - Date.now()) / 864e5) : null;
+function rankOpps(opps, extra = []) {
+  const mine = new Set([...(me.interests || []), ...extra, ...Object.keys(me.skills || {})]);
+  return opps.map((o) => {
+    const m = (o.tags || []).filter((t) => mine.has(t)), fit = o.tags?.length ? m.length / o.tags.length : 0, d = daysLeft(o.deadline);
+    const urg = d === null ? 0 : d <= 14 ? 1 : d >= 90 ? 0 : 1 - (d - 14) / 76;
+    const eligible = !(o.min_year && me.year && me.year < o.min_year) && !(o.branches?.length && me.branch && !o.branches.includes(me.branch)) && (d === null || d >= 0);
+    const why = []; if (m.length) why.push('Matches your ' + m.map((t) => SKILLS[t] || t).join(', ')); if (o.min_year) why.push(`open to year ${o.min_year}+`); if (d !== null && d >= 0) why.push(d === 0 ? 'closes today' : `closes in ${d} day${d === 1 ? '' : 's'}`);
+    return { ...o, eligible, why: why.join(' · '), score: eligible ? 0.6 * fit + 0.4 * urg : -1 };
+  }).sort((a, b) => b.score - a.score);
+}
+
+// ===== CARDS =====
+const personCard = (p) => `<div class="card grid gap-2"><div class="flex items-center gap-3"><span class="flex h-10 w-10 items-center justify-center rounded-full bg-teal text-sm font-bold text-white">${esc(p.full_name.split(' ').map((w) => w[0]).join(''))}</span><div class="flex-1"><p class="font-semibold leading-tight">${esc(p.full_name)}</p><p class="text-xs text-muted">${esc(p.branch)} · Year ${esc(p.year)}</p></div><span class="text-lg font-bold text-teal">${p.score}</span></div>
+  <div class="h-1.5 rounded-full bg-mist"><div class="h-1.5 rounded-full bg-teal" style="width:${Math.max(4, p.score)}%"></div></div>
+  <div class="flex flex-wrap gap-1">${Object.entries(p.skills || {}).map(([k, v]) => `<span class="badge ${p.covers?.includes(k) ? 'b-teal' : 'b-slate'}">${esc(SKILLS[k] || k)} ${esc(v)}</span>`).join('')}</div>
+  <p class="text-xs text-muted">${esc(p.reason)}</p></div>`;
+const oppCard = (o, saved) => `<div class="card flex gap-3"><div class="flex-1"><div class="flex flex-wrap items-center gap-2"><p class="font-semibold">${esc(o.title)}</p><span class="badge capitalize ${TYPE_BADGE[o.type] || 'b-slate'}">${esc(o.type)}</span>${o.verified ? '<span class="badge b-teal">Verified</span>' : '<span class="badge b-slate">Unverified</span>'}</div>
+  <p class="text-xs text-muted">${esc(o.organizer)}</p>${o.description ? `<p class="mt-1 text-sm">${esc(o.description)}</p>` : ''}${o.why ? `<p class="mt-1 text-xs font-semibold text-teal">Why you: ${esc(o.why)}</p>` : ''}
+  <p class="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-xs text-muted">${o.deadline ? `<span>Deadline ${fmtDate(o.deadline, { day: 'numeric', month: 'short' })}</span>` : ''}<span>Eligibility: ${o.min_year ? `Year ${o.min_year}+` : 'All years'}${o.branches?.length ? ' · ' + esc(o.branches.join(', ')) : ''}</span><span>Source: ${esc(o.source)}</span></p></div>
+  <button class="btn btn-light self-start px-3 py-1.5 text-xs" data-save="${o.id}" data-saved="${saved ? 1 : 0}">${saved ? 'Saved ✓' : 'Save'}</button></div>`;
+document.addEventListener('click', async (e) => {
+  const b = e.target.closest('[data-save]'); if (!b) return;
+  const next = b.dataset.saved !== '1'; b.dataset.saved = next ? 1 : 0; b.textContent = next ? 'Saved ✓' : 'Save';
+  try { await rpc('toggle_saved', { p_opportunity: b.dataset.save, p_saved: next }); cache.saved = null; } catch (err) { toast(err.message); }
+});
+
+// ===== AUTH =====
+let signup = false;
+$('#lToggle').onclick = () => { signup = !signup; $('#loginTitle').textContent = signup ? 'Create account' : 'Sign in'; $('#lBtn').textContent = signup ? 'Sign up' : 'Sign in'; $('#lToggle').textContent = signup ? 'Have an account? Sign in' : 'New here? Create an account'; };
+async function signIn(email, password, isSignup) {
+  const m = $('#loginMsg'); m.classList.add('hidden');
+  document.querySelectorAll('#login button').forEach((b) => (b.disabled = true));
+  const { data, error } = isSignup ? await sb.auth.signUp({ email, password, options: { emailRedirectTo: location.href.split('#')[0] } }) : await sb.auth.signInWithPassword({ email, password });
+  document.querySelectorAll('#login button').forEach((b) => (b.disabled = false));
+  if (error) { m.textContent = error.message; m.classList.remove('hidden'); return; }
+  if (isSignup && !data.session) { m.textContent = 'Check your email to confirm your account, then sign in.'; m.classList.remove('hidden'); }
+}
+document.querySelectorAll('[data-demo]').forEach((b) => (b.onclick = () => signIn(b.dataset.demo, DEMO_PASSWORD)));
+$('#loginForm').onsubmit = (e) => { e.preventDefault(); signIn($('#lEmail').value, $('#lPass').value, signup); };
+$('#logout').onclick = async (e) => { e.preventDefault(); await sb.auth.signOut(); };
+$('#menuBtn').onclick = () => $('#side').classList.toggle('-translate-x-full');
+
+let started = false;
+sb.auth.onAuthStateChange((_ev, s) => { session = s; setTimeout(boot, 0); });
+async function boot() {
+  if (!session) { started = false; me = null; chat = []; Object.keys(cache).forEach((k) => delete cache[k]); $('#app').classList.add('hidden'); showPublic(); return; }
+  if (started) return; started = true;
+  $('#login').classList.add('hidden'); $('#landing').classList.add('hidden'); $('#app').classList.remove('hidden');
+  if (['home', 'login', ''].includes(location.hash.slice(1))) history.replaceState(null, '', '#assistant');
+  const { data } = await sb.from('profiles').select('*').eq('id', session.user.id).maybeSingle();
+  me = data;
+  if (!me) { renderProfile(true); return; }
+  $('#meName').textContent = me.full_name; $('#meRole').textContent = me.role;
+  await Promise.all(['locations', 'knowledge'].map((n) => load(n).catch(() => [])));
+  refreshUnread(); subscribe(); route();
+}
+async function refreshUnread() {
+  const { count } = await sb.from('notifications').select('*', { count: 'exact', head: true }).eq('profile_id', session.user.id).eq('read', false);
+  const u = $('#unread'); u.textContent = count || ''; u.classList.toggle('hidden', !count);
+}
+let channel;
+function subscribe() {
+  if (channel) sb.removeChannel(channel);
+  channel = sb.channel('live').on('postgres_changes', { event: '*', schema: 'public', table: 'issue_groups' }, () => { clearTimeout(subscribe._t); subscribe._t = setTimeout(() => { if (['pulse', 'analytics', 'map'].includes(current())) route(); }, 400); })
+    .on('postgres_changes', { event: 'INSERT', schema: 'public', table: 'notifications' }, (p) => { if (p.new.profile_id === me.id) { refreshUnread(); toast(p.new.title); if (current() === 'notifications') route(); } })
+    .subscribe();
+}
+
+function showPublic() {
+  const h = location.hash.slice(1), wantLogin = h === 'login';
+  $('#login').classList.toggle('hidden', !wantLogin || !!session);
+  $('#landing').classList.toggle('hidden', wantLogin && !session);
+  document.querySelectorAll('.cta').forEach((a) => { a.textContent = session ? 'Open the app' : 'Try the live demo'; a.setAttribute('href', session ? '#assistant' : '#login'); });
+  if (!wantLogin && !['problem', 'how', 'features', 'demo'].includes(h)) window.scrollTo(0, 0);
+}
+document.querySelectorAll('[data-scroll]').forEach((a) => (a.onclick = (e) => { e.preventDefault(); document.getElementById(a.getAttribute('href').slice(1)).scrollIntoView(); }));
+// ===== ROUTER =====
+const current = () => (location.hash.slice(1) || 'assistant');
+const ROUTES = { assistant: renderAssistant, teams: renderTeams, projects: renderProjects, map: renderMap, opportunities: renderOpps, pulse: renderPulse, analytics: renderAnalytics, notifications: renderNotifications, profile: () => renderProfile(false) };
+async function route() {
+  if (!session) { showPublic(); return; }
+  if (current() === 'home') { $('#app').classList.add('hidden'); showPublic(); return; }
+  $('#landing').classList.add('hidden'); $('#login').classList.add('hidden'); $('#app').classList.remove('hidden');
+  if (!me) return;
+  const r = ROUTES[current()] ? current() : 'assistant';
+  document.querySelectorAll('#nav a, .nav a').forEach((a) => a.classList.toggle('active', a.getAttribute('href') === '#' + r));
+  view.onclick = null; $('#side').classList.add('-translate-x-full');
+  if (window.innerWidth >= 1024) $('#side').classList.remove('-translate-x-full');
+  try { await ROUTES[r](); } catch (err) { view.innerHTML = `<div class="card text-sm text-coral">Something went wrong: ${esc(err.message)}</div>`; }
+}
+window.addEventListener('hashchange', route);
+
+// ===== ASSISTANT =====
+const SUGGEST = ['I want to build an AI waste solution. Help me find a team.', 'What are the library timings during exams?', 'Wi-Fi is not working in Hostel B', 'Any hackathons or competitions for me this month?'];
+function renderAssistant() {
+  view.innerHTML = `<div class="flex min-h-[calc(100vh-8rem)] flex-col"><div id="msgs" class="flex-1 space-y-5 pb-6"></div>
+    <form id="chatForm" class="sticky bottom-4 flex gap-2 rounded-2xl border border-slate-200 bg-white p-2 shadow-lg"><input id="chatIn" class="flex-1 rounded-xl px-3 py-2 text-[15px] outline-none" placeholder="e.g. I want to build an AI waste solution. Help me find a team." autocomplete="off"><button class="btn btn-teal" id="chatBtn">Send</button></form></div>`;
+  $('#chatForm').onsubmit = (e) => { e.preventDefault(); const v = $('#chatIn').value.trim(); if (v) send(v); };
+  drawChat();
+}
+function drawChat() {
+  const box = $('#msgs'); if (!box) return;
+  if (!chat.length) {
+    box.innerHTML = `<div class="mx-auto mt-10 max-w-2xl text-center"><h1 class="text-3xl font-bold">Hi ${esc(me.full_name.split(' ')[0])}, what do you need?</h1><p class="mt-2 text-muted">Ask about campus, find a team, discover opportunities, or report a problem.</p>
+      <div class="mt-8 grid gap-3 sm:grid-cols-2">${SUGGEST.map((s) => `<button class="card text-left text-sm font-medium hover:border-teal" data-suggest="${esc(s)}">${esc(s)}</button>`).join('')}</div></div>`;
+    box.querySelectorAll('[data-suggest]').forEach((b) => (b.onclick = () => send(b.dataset.suggest)));
+    return;
+  }
+  box.innerHTML = chat.map((m, i) => m.role === 'user'
+    ? `<div class="flex justify-end"><div class="max-w-2xl rounded-2xl bg-ocean px-4 py-3 text-sm text-white">${esc(m.text)}</div></div>`
+    : `<div class="grid max-w-3xl gap-3">${m.pending ? '<div class="flex items-center gap-2 text-sm text-muted"><span class="dot"></span> Thinking…</div>' : `<div class="rounded-2xl border border-slate-200 bg-white px-4 py-3 text-sm">${esc(m.text)}</div>${m.html || ''}`}</div>`).join('');
+  box.querySelectorAll('[data-approve]').forEach((b) => (b.onclick = () => approvePlan(+b.dataset.approve, b)));
+  box.querySelectorAll('[data-submitissue]').forEach((b) => (b.onclick = () => submitDraft(+b.dataset.submitissue, b)));
+  window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+}
+function localParse(msg) {
+  const t = msg.toLowerCase(), w = words(msg);
+  const issueWords = /(not working|broken|dirty|leak|no water|no internet|wifi|wi-fi|internet|slow|unsafe|dark|power|socket|garbage|dustbin|overflow|smell|fan|light)/;
+  const projWords = /(build|make|create|project|idea|team|teammate|hackathon team)/;
+  const oppWords = /(hackathon|internship|scholarship|competition|workshop|opportunit|fellowship)/;
+  if (projWords.test(t) && /(team|build|project|idea)/.test(t)) {
+    const need = new Set();
+    if (/\b(ai|ml|machine learning|model|vision|predict|smart)\b/.test(t)) need.add('ai_ml');
+    if (/(iot|sensor|bin|device|hardware|esp32|arduino|waste|smart)/.test(t)) need.add('iot');
+    if (/(app|mobile)/.test(t)) need.add('mobile');
+    if (/(web|website|dashboard|portal)/.test(t)) need.add('web_dev');
+    if (/(data|analytics)/.test(t)) need.add('data');
+    need.add('ui_ux'); need.add('pitch');
+    Object.entries(me.skills || {}).forEach(([k, v]) => v >= 3 && need.size > 2 && need.delete(k));
+    if (!need.has('ai_ml') && /\bai\b/.test(t)) need.add('ai_ml');
+    const topics = INTERESTS.filter((i) => t.includes(i.split('-')[0]));
+    if (/(waste|recycl|garbage|energy|solar|green)/.test(t)) topics.push('sustainability');
+    if (/(campus|bin|hostel)/.test(t)) topics.push('smart-campus');
+    const title = msg.replace(/^(i want to|i wanna|help me|let's|lets)\s*/i, '').replace(/\.?\s*help me find a team\.?/i, '').replace(/^(build|make|create)\s+/i, '').replace(/^(an?|the)\s+/i, '').trim();
+    return { intent: 'project', projectTitle: title ? title[0].toUpperCase() + title.slice(1) : 'New campus project', goal: title, neededSkills: [...need], topics: [...new Set(topics)], reply: 'Here is a team with the skills your idea needs, an opportunity to aim for, and a first plan. Approve it to send invites.' };
+  }
+  if (oppWords.test(t) && !issueWords.test(t)) {
+    const type = ['hackathon', 'internship', 'scholarship', 'workshop', 'competition', 'research'].find((x) => t.includes(x)) || 'any';
+    return { intent: 'opportunities', opportunityType: type === 'hackathon' && t.includes('competition') ? 'any' : type, topics: INTERESTS.filter((i) => t.includes(i)), reply: 'These are the best matches for your skills and interests that you are eligible for.' };
+  }
+  if (issueWords.test(t) && !/\?$/.test(t.trim())) {
+    const category = /(wifi|wi-fi|internet|network)/.test(t) ? 'wifi' : /(water|leak|tap)/.test(t) ? 'water' : /(power|socket|light|fan|electric|switch)/.test(t) ? 'electrical' : /(dirty|garbage|dustbin|clean|smell|overflow)/.test(t) ? 'cleanliness' : /(unsafe|dark|danger|fight|harass)/.test(t) ? 'safety' : 'other';
+    const loc = (cache.locations || []).find((l) => t.includes(l.name.toLowerCase())) || findLocation(msg);
+    return { intent: 'issue', category, locationName: loc?.name || '', issueDescription: msg, reply: 'I prepared a report. Check it and press Submit; nothing is sent until you do.' };
+  }
+  const facts = searchFacts(msg);
+  if (facts.length) return { intent: 'info', reply: `${facts[0].content} (Source: ${facts[0].title})` };
+  return { intent: 'chat', reply: 'I can answer campus questions, find teammates for a project idea, show opportunities you are eligible for, or report a campus problem. Try one of the examples.' };
+}
+async function send(msg) {
+  $('#chatIn').value = ''; $('#chatBtn').disabled = true;
+  chat.push({ role: 'user', text: msg }); const bot = { role: 'bot', pending: true }; chat.push(bot); drawChat();
+  const facts = searchFacts(msg);
+  const evs = /(event|today|week|happening|workshop|talk)/i.test(msg) ? await load('events').catch(() => []) : [];
+  let r = null;
+  if (aiMode !== 'off') {
+    const history = chat.filter((m) => !m.pending && m.text).slice(0, -1).map((m) => ({ role: m.role, text: m.text }));
+    const { data, error } = await sb.functions.invoke('ai-chat', { body: { message: msg, history, profile: me, skills: SKILLS, interests: INTERESTS, locations: (cache.locations || []).map((l) => l.name), facts: [...facts.map((f) => ({ title: f.title, content: f.content })), ...evs.slice(0, 5).map((e) => ({ title: 'Event: ' + e.title, content: `${e.title} at ${e.locations?.name}, ${fmtDate(e.starts_at, { weekday: 'long', hour: 'numeric', minute: '2-digit' })}` }))], college: COLLEGE_NAME } }).catch((e) => ({ error: e }));
+    if (!error && data && data.intent) { r = data; aiMode = 'on'; } else if (aiMode === 'unknown') { aiMode = 'off'; }
+  }
+  if (!r) r = localParse(msg);
+  try { await act(r, bot, facts, evs); } catch (err) { bot.text = 'Something went wrong: ' + err.message; }
+  bot.pending = false; $('#chatBtn').disabled = false; drawChat();
+}
+const plans = [], drafts = [];
+async function act(r, bot, facts, evs) {
+  bot.text = r.reply || 'Done.';
+  if (r.intent === 'project') {
+    const skills = (r.neededSkills || []).filter((s) => SKILLS[s]); const topics = (r.topics || []).filter((t) => INTERESTS.includes(t));
+    const fallback = localParse(r.goal || r.projectTitle || 'project'); const need = skills.length ? skills : (fallback.neededSkills || ['ui_ux', 'pitch']);
+    const { team, uncovered } = buildTeam(await load('profiles'), { skills: need, tags: topics });
+    const opps = rankOpps(await load('opportunities'), [...topics, ...need]).filter((o) => o.eligible).slice(0, 2);
+    const first = (p) => p.full_name.split(' ')[0];
+    const steps = (r.steps && r.steps.length >= 3) ? r.steps : [
+      { week: 1, task: 'Kick-off: agree on the problem, users and scope', owner: 'Everyone' },
+      { week: 2, task: 'Build the first working prototype', owner: team.slice(0, 2).map(first).join(' & ') || 'Everyone' },
+      { week: 3, task: 'Design the interface and test with 5 students', owner: team.filter((p) => p.covers.includes('ui_ux')).map(first)[0] || 'Everyone' },
+      { week: 4, task: 'Prepare the pitch and demo' + (opps[0] ? ` for ${opps[0].title}` : ''), owner: team.filter((p) => p.covers.includes('pitch')).map(first)[0] || 'Everyone' }];
+    const plan = { title: r.projectTitle || 'New campus project', goal: r.goal || r.projectTitle || '', skills: need, team, steps };
+    plans.push(plan); const pi = plans.length - 1;
+    bot.html = `<p class="text-xs font-bold tracking-wider text-muted">SUGGESTED TEAMMATES · NEEDS ${esc(need.map((s) => SKILLS[s]).join(', ').toUpperCase())}</p><div class="grid gap-3 sm:grid-cols-2">${team.map(personCard).join('')}</div>${uncovered.length ? `<p class="text-xs text-coral">No opt-in student found for: ${esc(uncovered.map((u) => SKILLS[u]).join(', '))}</p>` : ''}
+      ${opps.length ? `<p class="text-xs font-bold tracking-wider text-muted">OPPORTUNITIES FOR THIS PROJECT</p>${opps.map((o) => oppCard(o)).join('')}` : ''}
+      <div class="card border-ocean/30"><span class="badge b-ocean">PROJECT PLAN · DRAFT</span><p class="mt-2 text-lg font-bold">${esc(plan.title)}</p>${plan.goal && plan.goal !== plan.title ? `<p class="text-sm text-muted">${esc(plan.goal)}</p>` : ''}
+      <p class="mt-2 text-sm"><b>Team:</b> ${esc(team.map((p) => p.full_name).join(', '))}</p><ol class="mt-3 grid gap-1.5">${steps.map((s) => `<li class="flex gap-3 text-sm"><span class="w-16 shrink-0 font-semibold text-teal">Week ${esc(s.week)}</span><span class="flex-1">${esc(s.task)}</span><span class="text-xs text-muted">${esc(s.owner)}</span></li>`).join('')}</ol>
+      <div class="mt-4 flex flex-wrap items-center gap-3" id="plan${pi}"><!--P${pi}--><button class="btn btn-teal" data-approve="${pi}">Approve &amp; send invites</button><span class="text-xs text-muted">The AI proposes; you approve.</span><!--/P${pi}--></div></div>`;
+  } else if (r.intent === 'issue') {
+    const loc = findLocation(r.locationName) || (cache.locations || []).find((l) => (r.issueDescription || '').toLowerCase().includes(l.name.toLowerCase()));
+    const d = { description: r.issueDescription || chat[chat.length - 2].text, category: CATS[r.category] ? r.category : 'other', loc };
+    drafts.push(d); const di = drafts.length - 1;
+    bot.html = loc ? `<div class="card border-coral/40"><span class="badge b-coral">ISSUE REPORT · DRAFT</span><p class="mt-2 font-semibold">${esc(d.description)}</p><p class="mt-1 text-sm text-muted">${esc(loc.name)} · ${CATS[d.category]}</p><div class="mt-3" id="draft${di}"><!--D${di}--><button class="btn btn-coral" data-submitissue="${di}">Submit report</button><!--/D${di}--></div></div>`
+      : `<div class="card text-sm">I couldn't tell which building this is. Report it from the <a href="#map" class="font-semibold text-teal underline">Campus Map</a> by clicking where it happens.</div>`;
+  } else if (r.intent === 'info') {
+    const used = facts.slice(0, 3);
+    bot.html = (used.length || evs.length) ? `<div class="card bg-mist/60 text-sm"><p class="mb-2 text-xs font-bold tracking-wider text-muted">VERIFIED SOURCES</p><div class="flex flex-wrap gap-2">${used.map((f) => `<span class="badge b-teal">${esc(f.title)}</span>`).join('')}</div>
+      ${evs.length ? `<ul class="mt-3 grid gap-1">${evs.slice(0, 5).map((e) => `<li><b>${esc(e.title)}</b> · ${esc(e.locations?.name)} · ${fmtDate(e.starts_at, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</li>`).join('')}</ul>` : ''}</div>` : '';
+  } else if (r.intent === 'opportunities') {
+    let opps = rankOpps(await load('opportunities'), r.topics || []).filter((o) => o.eligible);
+    if (r.opportunityType && r.opportunityType !== 'any') opps = opps.filter((o) => o.type === r.opportunityType || (r.opportunityType === 'hackathon' && o.type === 'competition'));
+    bot.html = `<div class="grid gap-3">${opps.slice(0, 3).map((o) => oppCard(o)).join('') || '<div class="card text-sm text-muted">No eligible opportunities of that type right now.</div>'}</div>`;
+  }
+  if (aiMode === 'off' && !act._noted) { act._noted = true; bot.html = (bot.html || '') + '<p class="text-[11px] text-muted">Running the built-in assistant. Add your Gemini key in Supabase to switch on the full AI.</p>'; }
+}
+function swapMarked(tag, html) {
+  const a = `<!--${tag}-->`, b = `<!--/${tag}-->`;
+  chat.forEach((m) => { if (m.html && m.html.includes(a)) { const x = m.html.indexOf(a), y = m.html.indexOf(b); m.html = m.html.slice(0, x) + a + html + m.html.slice(y); } });
+}
+async function approvePlan(i, btn) {
+  const p = plans[i]; btn.disabled = true; btn.textContent = 'Creating…';
+  try {
+    const res = await rpc('create_project', { p_title: p.title, p_goal: p.goal, p_skills: p.skills, p_teammates: p.team.map((t) => t.id), p_steps: p.steps });
+    const box = $('#plan' + i); const html = `<span class="text-sm font-semibold text-teal">Project created and ${res.invited} invite${res.invited === 1 ? '' : 's'} sent.</span> <a href="#projects" class="text-sm text-teal underline">Open project</a>`;
+    box.innerHTML = html; swapMarked('P' + i, html);
+  } catch (err) { btn.disabled = false; btn.textContent = 'Approve & send invites'; toast(err.message); }
+}
+const issueResult = (res) => `<div class="rounded-lg bg-teal/10 p-3 text-sm"><p class="font-semibold text-teal">${res.joined ? `Joined ${res.othersCount} other student${res.othersCount === 1 ? '' : 's'} who reported this.` : 'New report created.'}</p>
+  <p class="text-muted">Priority <b class="capitalize">${esc(res.group.priority)}</b> (${esc(res.group.priority_rule)}) · routed to <b>${esc(res.group.assigned_team)}</b>. <a href="#pulse" class="text-teal underline">Track it in Campus Pulse</a></p></div>`;
+async function submitDraft(i, btn) {
+  const d = drafts[i]; btn.disabled = true; btn.textContent = 'Submitting…';
+  try {
+    const res = await rpc('report_issue', { p_description: d.description, p_category: d.category, p_location_id: d.loc.id });
+    const html = issueResult(res); $('#draft' + i).innerHTML = html;
+    swapMarked('D' + i, html);
+  } catch (err) { btn.disabled = false; btn.textContent = 'Submit report'; toast(err.message); }
+}
+
+// ===== TALENT GRAPH =====
+let teamState = { goal: 'AI-powered waste sorting for campus bins', skills: ['ai_ml', 'iot', 'ui_ux', 'pitch'], topics: ['sustainability', 'smart-campus'], result: null };
+function graphSvg(team, title) {
+  const cx = 300, cy = 150, RX = 190, RY = 95;
+  const pts = team.map((_, i) => { const a = ((-135 + (360 / Math.max(team.length, 1)) * i) * Math.PI) / 180; return [cx + RX * Math.cos(a), cy + RY * Math.sin(a)]; });
+  return `<svg viewBox="0 0 600 320" class="mx-auto w-full max-w-3xl" role="img" aria-label="Matched team">
+    ${pts.map(([x, y]) => `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" stroke="#8fd3d1" stroke-width="2"/>`).join('')}
+    <circle cx="${cx}" cy="${cy}" r="40" fill="#ff6b4a"/><text x="${cx}" y="${cy + 6}" text-anchor="middle" font-size="18" font-weight="800" fill="#fff">IDEA</text>
+    <text x="${cx}" y="${cy + 62}" text-anchor="middle" font-size="13" font-weight="600" fill="#0b1f2a">${esc(title.length > 40 ? title.slice(0, 40) + '…' : title)}</text>
+    ${team.map((p, i) => { const [x, y] = pts[i]; return `<circle cx="${x}" cy="${y}" r="26" fill="#0fa3a3"/><text x="${x}" y="${y + 5}" text-anchor="middle" font-size="13" font-weight="700" fill="#fff">${esc(p.full_name.split(' ').map((w) => w[0]).join(''))}</text>
+      <text x="${x}" y="${y + 44}" text-anchor="middle" font-size="12" font-weight="600" fill="#0b1f2a">${esc(p.full_name)}</text><text x="${x}" y="${y + 60}" text-anchor="middle" font-size="11" fill="#5b6b73">${esc(p.covers.map((c) => SKILLS[c]).join(', ') || 'support')}</text>`; }).join('')}</svg>`;
+}
+function renderTeams() {
+  const s = teamState;
+  view.innerHTML = header('Talent Graph', 'Find the people who complete your team: complementary skills, not just similar interests. Only students who opted in are shown.') +
+    `<div class="card grid gap-4 p-5"><label class="text-sm font-semibold">What are you building?<input id="tGoal" class="inp mt-1 font-normal" value="${esc(s.goal)}"></label>
+     <div><p class="text-sm font-semibold">Skills you need</p><div class="mt-2 flex flex-wrap gap-2">${Object.entries(SKILLS).map(([k, v]) => `<button class="chip ${s.skills.includes(k) ? 'on' : ''}" data-tskill="${k}">${v}</button>`).join('')}</div></div>
+     <div><p class="text-sm font-semibold">Project topics</p><div class="mt-2 flex flex-wrap gap-2">${INTERESTS.map((i) => `<button class="chip ${s.topics.includes(i) ? 'on-coral' : ''}" data-ttopic="${i}">${i}</button>`).join('')}</div></div>
+     <div class="flex flex-wrap items-center gap-3"><button class="btn btn-teal" id="tFind">Find my team</button><span class="text-xs text-muted">Score = 55% skill fit + 20% shared interests + 15% availability + 10% diversity</span></div></div><div id="tOut" class="mt-6 grid gap-6"></div>`;
+  view.querySelectorAll('[data-tskill]').forEach((b) => (b.onclick = () => { const k = b.dataset.tskill; s.skills = s.skills.includes(k) ? s.skills.filter((x) => x !== k) : [...s.skills, k]; b.classList.toggle('on'); }));
+  view.querySelectorAll('[data-ttopic]').forEach((b) => (b.onclick = () => { const k = b.dataset.ttopic; s.topics = s.topics.includes(k) ? s.topics.filter((x) => x !== k) : [...s.topics, k]; b.classList.toggle('on-coral'); }));
+  $('#tFind').onclick = async () => { s.goal = $('#tGoal').value; if (!s.skills.length) return toast('Pick at least one skill'); s.result = buildTeam(await load('profiles'), { skills: s.skills, tags: s.topics }); drawTeam(); };
+  if (s.result) drawTeam();
+}
+function drawTeam() {
+  const { team, uncovered } = teamState.result, out = $('#tOut');
+  out.innerHTML = `<div class="card p-2">${team.length ? graphSvg(team, teamState.goal) : '<p class="p-4 text-sm text-muted">No matches found.</p>'}</div>
+    ${uncovered.length ? `<p class="text-sm text-coral">No opt-in student covers: ${esc(uncovered.map((u) => SKILLS[u]).join(', '))}.</p>` : ''}
+    <div class="grid gap-4 sm:grid-cols-2">${team.map(personCard).join('')}</div>${team.length ? '<div><button class="btn btn-dark" id="tCreate">Create project &amp; invite this team</button></div>' : ''}`;
+  const c = $('#tCreate'); if (c) c.onclick = async () => {
+    c.disabled = true; const first = (p) => p.full_name.split(' ')[0];
+    const steps = [{ week: 1, task: 'Kick-off: agree on the problem, users and scope', owner: 'Everyone' }, { week: 2, task: 'Build the first prototype', owner: team.slice(0, 2).map(first).join(' & ') }, { week: 3, task: 'Design the interface and test with 5 students', owner: first(team[Math.min(2, team.length - 1)]) }, { week: 4, task: 'Prepare pitch and demo', owner: first(team[team.length - 1]) }];
+    try { await rpc('create_project', { p_title: teamState.goal, p_goal: teamState.goal, p_skills: teamState.skills, p_teammates: team.map((t) => t.id), p_steps: steps }); location.hash = 'projects'; } catch (err) { c.disabled = false; toast(err.message); }
+  };
+}
+
+// ===== PROJECTS =====
+async function renderProjects() {
+  loading(); const ps = await rpc('get_my_projects');
+  view.innerHTML = header('My Projects', 'Projects you lead or were invited to.') + (ps.length ? '' : `<div class="card text-sm text-muted">No projects yet. Ask the <a class="text-teal underline" href="#assistant">assistant</a> to help you find a team, or use the <a class="text-teal underline" href="#teams">Talent Graph</a>.</div>`) +
+    `<div class="grid gap-4">${ps.map((p) => `<div class="card p-5"><div class="flex flex-wrap items-start justify-between gap-3"><div><p class="text-lg font-bold">${esc(p.title)}</p>${p.goal && p.goal !== p.title ? `<p class="text-sm text-muted">${esc(p.goal)}</p>` : ''}
+      <div class="mt-2 flex flex-wrap gap-1">${(p.needed_skills || []).map((s) => `<span class="badge b-teal">${esc(SKILLS[s] || s)}</span>`).join('')}</div></div>
+      ${p.my_status === 'invited' ? `<div class="flex gap-2"><button class="btn btn-teal" data-resp="${p.id}" data-acc="1">Accept invite</button><button class="btn btn-light" data-resp="${p.id}" data-acc="0">Decline</button></div>` : ''}</div>
+      <div class="mt-4 grid gap-6 md:grid-cols-2"><div><p class="mb-2 text-xs font-bold tracking-wider text-muted">TEAM</p><ul class="grid gap-1.5 text-sm">${p.members.map((m) => `<li class="flex items-center justify-between gap-2"><span>${esc(m.full_name)} <span class="text-xs text-muted">· ${esc(m.branch || '')}${m.role === 'Lead' ? ' · Lead' : ''}</span></span><span class="badge capitalize ${m.status === 'accepted' ? 'b-teal' : m.status === 'declined' ? 'b-coral' : 'b-sun'}">${esc(m.status)}</span></li>`).join('')}</ul></div>
+      <div><p class="mb-2 text-xs font-bold tracking-wider text-muted">ROADMAP</p><ol class="grid gap-1.5 text-sm">${(p.roadmap || []).map((s) => `<li class="flex gap-3"><span class="w-14 shrink-0 font-semibold text-teal">Wk ${esc(s.week)}</span><span class="flex-1">${esc(s.task)}</span><span class="text-xs text-muted">${esc(s.owner)}</span></li>`).join('')}</ol></div></div></div>`).join('')}</div>`;
+  view.querySelectorAll('[data-resp]').forEach((b) => (b.onclick = async () => { b.disabled = true; try { await rpc('respond_invite', { p_project: b.dataset.resp, p_accept: b.dataset.acc === '1' }); route(); } catch (err) { toast(err.message); } }));
+}
+
+// ===== MAP =====
+let mapState = { filter: 'all', layers: { places: true, events: true, issues: true }, reporting: false, pick: null, selected: null, result: null };
+let leaflet = null;
+async function renderMap() {
+  loading();
+  const [locs, evs, { data: groups }] = await Promise.all([load('locations'), load('events', true), sb.from('issue_groups').select('*').neq('status', 'resolved')]);
+  const week = Date.now() + 7 * 864e5, events = evs.filter((e) => Date.parse(e.starts_at) < week), byId = Object.fromEntries(locs.map((l) => [l.id, l])), s = mapState;
+  const filters = [['all', 'All places'], ['academic', 'Academic'], ['lab', 'Labs'], ['hostel', 'Hostels'], ['sports', 'Sports'], ['food', 'Food'], ['service', 'Services']];
+  view.innerHTML = header('Campus Digital Twin', 'Places, this week\'s events and open issues on one map. Click a pin for details, or report a problem where it happens.') +
+    `<div class="grid gap-4 lg:grid-cols-[1fr_340px]"><div class="grid gap-3"><div class="flex flex-wrap items-center gap-2">${filters.map(([k, v]) => `<button class="chip ${s.filter === k ? 'on-dark' : ''}" data-mf="${k}">${v}</button>`).join('')}
+      <span class="mx-1 h-5 w-px bg-slate-300"></span>${[['places', 'Places', '#0fa3a3'], ['events', 'Events', '#f6b93b'], ['issues', 'Open issues', '#ff6b4a']].map(([k, v, c]) => `<label class="flex items-center gap-1.5 text-xs font-semibold"><input type="checkbox" data-ml="${k}" ${s.layers[k] ? 'checked' : ''}><span class="h-2.5 w-2.5 rounded-full" style="background:${c}"></span>${v}</label>`).join('')}</div>
+      <div class="relative"><div id="mapBox" class="h-[560px] w-full border border-slate-200"></div>${s.reporting ? `<div class="absolute left-14 top-3 z-[500] rounded-lg bg-ocean px-3 py-2 text-sm font-semibold text-white shadow">${s.pick ? 'Location set. Fill in the form →' : 'Click on the map where the problem is'}</div>` : ''}</div></div>
+      <div id="mapSide" class="grid content-start gap-4"></div></div>`;
+  view.querySelectorAll('[data-mf]').forEach((b) => (b.onclick = () => { s.filter = b.dataset.mf; renderMap(); }));
+  view.querySelectorAll('[data-ml]').forEach((b) => (b.onchange = () => { s.layers[b.dataset.ml] = b.checked; renderMap(); }));
+  if (leaflet) { leaflet.remove(); leaflet = null; }
+  const c = locs.reduce((a, l) => [a[0] + l.lat / locs.length, a[1] + l.lng / locs.length], [0, 0]);
+  leaflet = L.map('mapBox').setView(c, 17);
+  L.tileLayer('https://tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OpenStreetMap contributors' }).addTo(leaflet);
+  const pin = (color, size, label) => L.divIcon({ className: '', html: `<div class="pin" style="width:${size}px;height:${size}px;background:${color}">${label || ''}</div>`, iconSize: [size, size] });
+  const select = (id) => { s.selected = id; s.result = null; drawSide(); };
+  if (s.layers.places) locs.filter((l) => s.filter === 'all' || l.type === s.filter).forEach((l) => L.marker([l.lat, l.lng], { icon: pin('#0fa3a3', 16), title: l.name }).on('click', () => select(l.id)).addTo(leaflet));
+  if (s.layers.events) { const by = {}; events.forEach((e) => e.location_id && (by[e.location_id] = (by[e.location_id] || 0) + 1)); Object.entries(by).forEach(([id, n]) => { const l = byId[id]; if (l) L.marker([l.lat + 0.00012, l.lng + 0.00018], { icon: pin('#f6b93b', 20, n) }).on('click', () => select(l.id)).addTo(leaflet); }); }
+  if (s.layers.issues) (groups || []).forEach((g) => { const l = byId[g.location_id]; if (!l) return; const z = Math.min(34, 18 + g.report_count * 2); L.marker([l.lat - 0.00012, l.lng - 0.00018], { icon: pin('#ff6b4a', z, g.report_count) }).on('click', () => select(l.id)).addTo(leaflet); });
+  let pickMarker = s.pick ? L.marker([s.pick.lat, s.pick.lng]).addTo(leaflet) : null;
+  leaflet.on('click', (e) => { if (!s.reporting) return; s.pick = { lat: e.latlng.lat, lng: e.latlng.lng }; if (pickMarker) pickMarker.remove(); pickMarker = L.marker(e.latlng).addTo(leaflet); drawSide(); });
+  if (s.reporting) $('#mapBox').style.cursor = 'crosshair';
+  function drawSide() {
+    const side = $('#mapSide'); if (!side) return; const p = s.selected && byId[s.selected];
+    let h = s.reporting ? `<div class="card grid gap-3"><div class="flex items-center justify-between"><p class="font-bold">Report an issue</p><button class="text-sm text-muted" id="mCancel">Cancel</button></div>
+        <p class="text-xs text-muted">${s.pick ? `Pinned at ${s.pick.lat.toFixed(5)}, ${s.pick.lng.toFixed(5)} (nearest building is used)` : '1. Click the map to set the location.'}</p>
+        <select id="mCat" class="inp">${Object.entries(CATS).map(([k, v]) => `<option value="${k}">${v}</option>`).join('')}</select>
+        <textarea id="mDesc" class="inp" rows="3" placeholder="What's wrong? e.g. Wi-Fi not working in Hostel B"></textarea>
+        <button class="btn btn-coral" id="mSubmit" ${s.pick ? '' : 'disabled'}>Submit report</button></div>`
+      : `<button class="btn btn-coral" id="mReport">Report an issue</button>`;
+    if (s.result) h += s.result.error ? `<div class="card text-sm text-coral">${esc(s.result.error)}</div>` : `<div class="card">${issueResult(s.result)}</div>`;
+    if (p) {
+      const pe = events.filter((e) => e.location_id === p.id), pi = (groups || []).filter((g) => g.location_id === p.id);
+      h += `<div class="card grid gap-3"><div class="flex items-start justify-between"><div><p class="text-lg font-bold">${esc(p.name)}</p><span class="badge b-teal capitalize">${esc(p.type)}</span></div><button class="text-sm text-muted" id="mClose">Close</button></div>
+        ${p.description ? `<p class="text-sm">${esc(p.description)}</p>` : ''}${p.accessibility ? `<p class="text-xs text-muted">Accessibility: ${esc(p.accessibility)}</p>` : ''}
+        <div><p class="mb-1 text-xs font-bold tracking-wider text-muted">THIS WEEK</p>${pe.map((e) => `<p class="text-sm"><b>${esc(e.title)}</b> · ${fmtDate(e.starts_at, { weekday: 'short', hour: 'numeric', minute: '2-digit' })}</p>`).join('') || '<p class="text-xs text-muted">No events.</p>'}</div>
+        <div><p class="mb-1 text-xs font-bold tracking-wider text-muted">OPEN ISSUES</p>${pi.map((g) => `<div class="flex items-center justify-between gap-2 text-sm"><span>${CATS[g.category]} · ${g.report_count} report${g.report_count === 1 ? '' : 's'}</span><span class="flex gap-1"><span class="badge capitalize ${PRIO_BADGE[g.priority]}">${esc(g.priority)}</span><span class="badge b-slate">${STATUS_LABEL[g.status]}</span></span></div>`).join('') || '<p class="text-xs text-muted">None reported.</p>'}</div></div>`;
+    } else if (!s.reporting) h += `<div class="card text-sm text-muted"><p class="font-semibold text-ink">${locs.length} places · ${events.length} events this week · ${(groups || []).length} open issue groups</p><p class="mt-2">Teal pins are places, yellow pins show how many events are on, coral pins show open issues sized by the number of reports.</p></div>`;
+    side.innerHTML = h;
+    const on = (id, fn) => { const el = $('#' + id); if (el) el.onclick = fn; };
+    on('mReport', () => { s.reporting = true; s.pick = null; s.result = null; s.selected = null; renderMap(); });
+    on('mCancel', () => { s.reporting = false; s.pick = null; renderMap(); });
+    on('mClose', () => { s.selected = null; drawSide(); });
+    on('mSubmit', async () => {
+      const desc = $('#mDesc').value.trim(); if (desc.length < 5) return toast('Describe the issue in a few words');
+      $('#mSubmit').disabled = true;
+      try { s.result = await rpc('report_issue', { p_description: desc, p_category: $('#mCat').value, p_lat: s.pick.lat, p_lng: s.pick.lng }); s.reporting = false; s.pick = null; renderMap(); }
+      catch (err) { s.result = { error: err.message }; $('#mSubmit').disabled = false; drawSide(); }
+    });
+  }
+  drawSide(); setTimeout(() => leaflet && leaflet.invalidateSize(), 100);
+}
+
+// ===== OPPORTUNITIES =====
+let oppState = { type: 'all', eligible: true, savedOnly: false };
+async function renderOpps() {
+  loading();
+  const [opps, { data: saved }] = await Promise.all([load('opportunities'), sb.from('saved_opportunities').select('opportunity_id').eq('profile_id', me.id)]);
+  const savedSet = new Set((saved || []).map((x) => x.opportunity_id)), s = oppState, ranked = rankOpps(opps);
+  const draw = () => {
+    const shown = ranked.filter((o) => (s.type === 'all' || o.type === s.type) && (!s.eligible || o.eligible) && (!s.savedOnly || savedSet.has(o.id)));
+    $('#oppList').innerHTML = shown.map((o) => oppCard(o, savedSet.has(o.id))).join('') || '<div class="card text-sm text-muted">Nothing matches these filters.</div>';
+  };
+  view.innerHTML = header('Opportunity Engine', 'The right opportunity at the right time. Ranked by fit with your skills and interests, and by how soon it closes.') +
+    `<div class="mb-4 flex flex-wrap items-center gap-2">${['all', 'hackathon', 'competition', 'internship', 'scholarship', 'workshop', 'research'].map((t) => `<button class="chip capitalize ${s.type === t ? 'on-dark' : ''}" data-ot="${t}">${t}</button>`).join('')}
+     <span class="mx-1 h-5 w-px bg-slate-300"></span><label class="flex items-center gap-1.5 text-xs font-semibold"><input type="checkbox" id="oEl" ${s.eligible ? 'checked' : ''}> Eligible for me</label><label class="flex items-center gap-1.5 text-xs font-semibold"><input type="checkbox" id="oSv" ${s.savedOnly ? 'checked' : ''}> Saved only</label></div><div id="oppList" class="grid gap-3"></div>`;
+  view.querySelectorAll('[data-ot]').forEach((b) => (b.onclick = () => { s.type = b.dataset.ot; view.querySelectorAll('[data-ot]').forEach((x) => x.classList.toggle('on-dark', x === b)); draw(); }));
+  $('#oEl').onchange = (e) => { s.eligible = e.target.checked; draw(); };
+  $('#oSv').onchange = (e) => { s.savedOnly = e.target.checked; draw(); };
+  view.onclick = (e) => { const b = e.target.closest('[data-save]'); if (b) { const id = b.dataset.save; b.dataset.saved === '1' ? savedSet.delete(id) : savedSet.add(id); } };
+  draw();
+}
+
+// ===== CAMPUS PULSE =====
+async function renderPulse() {
+  const [{ data: groups }, { data: mine }] = await Promise.all([sb.from('issue_groups').select('*, locations(name)').order('updated_at', { ascending: false }), sb.from('issues').select('group_id').eq('reporter_id', me.id)]);
+  const staff = ['staff', 'admin'].includes(me.role), mySet = new Set((mine || []).map((m) => m.group_id));
+  const NEXT = { open: 'assigned', assigned: 'in_progress', in_progress: 'resolved' }, ORD = { high: 0, medium: 1, low: 2 };
+  view.innerHTML = header('Campus Pulse', staff ? 'Staff view: move reports through the workflow. Every reporter is notified on each change.' : 'Reports become resolutions. Similar reports are grouped, prioritised by transparent rules and routed to the right team. This page updates live.') +
+    `<div class="grid gap-4 md:grid-cols-2 xl:grid-cols-4">${STATUSES.map((st) => { const col = (groups || []).filter((g) => g.status === st).sort((a, b) => ORD[a.priority] - ORD[b.priority] || b.report_count - a.report_count);
+      return `<div class="rounded-xl bg-mist p-3"><p class="mb-3 flex items-center justify-between px-1 text-sm font-bold">${STATUS_LABEL[st]}<span class="rounded-full bg-white px-2 text-xs text-muted">${col.length}</span></p><div class="grid gap-3">${col.map((g) => `<div class="card grid gap-2 p-3 ${mySet.has(g.id) ? 'ring-2 ring-teal' : ''}">
+        <div class="flex flex-wrap gap-1"><span class="badge capitalize ${PRIO_BADGE[g.priority]}">${esc(g.priority)}</span><span class="badge b-slate">${CATS[g.category]}</span>${mySet.has(g.id) ? '<span class="badge b-teal">Your report</span>' : ''}</div>
+        <p class="text-sm font-semibold leading-snug">${esc(g.title)}</p><p class="text-xs text-muted">${esc(g.locations?.name)} · ${g.report_count} report${g.report_count === 1 ? '' : 's'}</p>
+        <p class="text-xs text-muted">Rule: ${esc(g.priority_rule)}</p><p class="text-xs">Team: <b>${esc(g.assigned_team)}</b></p>
+        ${staff && NEXT[st] ? `<button class="btn ${NEXT[st] === 'resolved' ? 'btn-teal' : 'btn-light'} mt-1 py-1.5 text-xs" data-move="${g.id}" data-to="${NEXT[st]}">Move to ${STATUS_LABEL[NEXT[st]]} →</button>` : ''}</div>`).join('')}</div></div>`; }).join('')}</div>`;
+  view.querySelectorAll('[data-move]').forEach((b) => (b.onclick = async () => { b.disabled = true; b.textContent = 'Updating…'; try { await rpc('set_issue_status', { p_group: b.dataset.move, p_status: b.dataset.to }); renderPulse(); } catch (err) { toast(err.message); b.disabled = false; } }));
+}
+
+// ===== ANALYTICS =====
+async function renderAnalytics() {
+  const { data } = await sb.from('issue_groups').select('*, locations(name)'); const g = data || [];
+  const bars = (rows, color) => { const max = Math.max(1, ...rows.map((r) => r.v)); return rows.map((r) => `<div class="grid grid-cols-[140px_1fr_32px] items-center gap-3 text-sm"><span class="truncate text-muted">${esc(r.k)}</span><div class="h-5 rounded bg-mist"><div class="h-5 rounded" style="width:${(r.v / max) * 100}%;background:${color}"></div></div><span class="text-right font-semibold">${r.v}</span></div>`).join(''); };
+  const sum = (arr, key) => { const o = {}; arr.forEach((x) => { const k = key(x); o[k] = (o[k] || 0) + x.report_count; }); return Object.entries(o).map(([k, v]) => ({ k, v })).sort((a, b) => b.v - a.v); };
+  const open = g.filter((x) => x.status !== 'resolved'), now = Date.now(), wk = 7 * 864e5;
+  const avg = (a, b) => { const r = g.filter((x) => x.resolved_at && Date.parse(x.resolved_at) >= a && Date.parse(x.resolved_at) < b); return r.length ? Math.round(r.reduce((s, x) => s + (Date.parse(x.resolved_at) - Date.parse(x.created_at)) / 36e5, 0) / r.length) : null; };
+  const tw = avg(now - wk, now + 1), lw = avg(now - 2 * wk, now - wk), top = [...open].sort((a, b) => b.report_count - a.report_count)[0];
+  const stat = (l, v, s) => `<div class="card"><p class="text-xs font-bold tracking-wider text-muted">${l}</p><p class="mt-1 text-3xl font-bold text-ocean">${v}</p><p class="text-xs text-muted">${s}</p></div>`;
+  view.innerHTML = header('Campus Analytics', 'Aggregated counts only. No individual reporter is ever shown.') +
+    `<div class="card mb-6 border-sun/50 bg-sun/10 text-sm font-semibold">${top ? `${CATS[top.category]} at ${esc(top.locations?.name)} is the most repeated open issue (${top.report_count} reports). ${esc(top.assigned_team)} should look at it first.` : 'No open issues right now.'}</div>
+     <div class="mb-6 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">${stat('TOTAL REPORTS', g.reduce((s, x) => s + x.report_count, 0), g.length + ' grouped issues')}${stat('OPEN ISSUES', open.length, open.filter((x) => x.priority === 'high').length + ' high priority')}${stat('AVG RESOLUTION, THIS WEEK', tw != null ? tw + ' h' : '—', 'first report to resolved')}${stat('AVG RESOLUTION, LAST WEEK', lw != null ? lw + ' h' : '—', 'for comparison')}</div>
+     <div class="grid gap-4 lg:grid-cols-2"><div class="card p-5"><p class="mb-4 font-bold">Reports by category</p><div class="grid gap-2">${bars(sum(g, (x) => CATS[x.category]), '#0fa3a3')}</div></div>
+     <div class="card p-5"><p class="mb-4 font-bold">Top locations by open reports</p><div class="grid gap-2">${bars(sum(open, (x) => x.locations?.name || 'Unknown').slice(0, 5), '#ff6b4a')}</div></div></div>`;
+}
+
+// ===== NOTIFICATIONS =====
+async function renderNotifications() {
+  loading();
+  const { data } = await sb.from('notifications').select('*').eq('profile_id', me.id).order('created_at', { ascending: false }).limit(50); const n = data || [];
+  view.innerHTML = header('Notifications', 'Invites, report updates and reminders.', n.some((x) => !x.read) ? '<button class="btn btn-light" id="nRead">Mark all as read</button>' : '') +
+    `<div class="grid gap-2">${n.map((x) => `<a href="#${esc(x.link === '/assistant' ? 'assistant' : x.link || 'notifications')}" class="card flex items-start gap-3 hover:border-teal ${x.read ? '' : 'border-teal/40 bg-teal/5'}"><span class="mt-1.5 h-2 w-2 shrink-0 rounded-full ${x.read ? 'bg-slate-300' : 'bg-teal'}"></span><div class="flex-1"><p class="font-semibold">${esc(x.title)}</p>${x.body ? `<p class="text-sm text-muted">${esc(x.body)}</p>` : ''}</div><span class="text-xs text-muted">${fmtDate(x.created_at, { dateStyle: 'medium', timeStyle: 'short' })}</span></a>`).join('') || '<div class="card text-sm text-muted">No notifications yet.</div>'}</div>`;
+  const b = $('#nRead'); if (b) b.onclick = async () => { await rpc('mark_notifications_read'); refreshUnread(); renderNotifications(); };
+}
+
+// ===== PROFILE =====
+function renderProfile(onboarding) {
+  const p = me || {}, f = { full_name: p.full_name || '', year: p.year || 1, branch: p.branch || 'CSE', bio: p.bio || '', interests: [...(p.interests || [])], skills: { ...(p.skills || {}) }, availability: p.availability || 'medium', is_discoverable: !!p.is_discoverable };
+  if (onboarding) { $('#side').classList.add('hidden'); $('#menuBtn').classList.add('hidden'); }
+  view.innerHTML = header(onboarding ? 'Set up your profile' : 'Your profile', 'Your skills and interests power teammate matching and opportunity recommendations.') +
+    `<div class="card grid gap-5 p-6"><div class="grid gap-3 sm:grid-cols-3"><label class="text-sm font-semibold sm:col-span-3">Full name<input id="pName" class="inp mt-1" value="${esc(f.full_name)}"></label>
+      <label class="text-sm font-semibold">Branch<select id="pBranch" class="inp mt-1">${BRANCHES.map((b) => `<option ${b === f.branch ? 'selected' : ''}>${b}</option>`).join('')}</select></label>
+      <label class="text-sm font-semibold">Year<select id="pYear" class="inp mt-1">${[1, 2, 3, 4].map((y) => `<option ${y === f.year ? 'selected' : ''}>${y}</option>`).join('')}</select></label>
+      <label class="text-sm font-semibold">Availability<select id="pAvail" class="inp mt-1">${['high', 'medium', 'low'].map((a) => `<option value="${a}" ${a === f.availability ? 'selected' : ''} class="capitalize">${a[0].toUpperCase() + a.slice(1)}</option>`).join('')}</select></label>
+      <label class="text-sm font-semibold sm:col-span-3">Short bio<input id="pBio" class="inp mt-1" value="${esc(f.bio)}" placeholder="What do you like building?"></label></div>
+     <div><p class="text-sm font-semibold">Interests</p><div class="mt-2 flex flex-wrap gap-2">${INTERESTS.map((i) => `<button class="chip ${f.interests.includes(i) ? 'on' : ''}" data-pi="${i}">${i}</button>`).join('')}</div></div>
+     <div><p class="text-sm font-semibold">Skills <span class="font-normal text-muted">(0 = none, 5 = expert)</span></p><div class="mt-2 grid gap-x-6 gap-y-2 sm:grid-cols-2">${Object.entries(SKILLS).map(([k, v]) => `<label class="flex items-center gap-3 text-sm"><span class="w-32 shrink-0">${v}</span><input type="range" min="0" max="5" value="${f.skills[k] || 0}" data-ps="${k}" class="flex-1 accent-[#0fa3a3]"><b class="w-4 text-right" id="psv-${k}">${f.skills[k] || 0}</b></label>`).join('')}</div></div>
+     <label class="flex items-start gap-3 rounded-xl border border-teal/30 bg-teal/5 p-4"><input type="checkbox" id="pDisc" class="mt-1 h-4 w-4 accent-[#0fa3a3]" ${f.is_discoverable ? 'checked' : ''}><span><span class="block font-semibold">Let other students find me for projects</span><span class="text-sm text-muted">Only your name, branch, year and skills are shown. Your email stays private. You can turn this off any time.</span></span></label>
+     <div class="flex items-center gap-3"><button class="btn btn-teal" id="pSave">Save profile</button><span id="pMsg" class="text-sm text-muted"></span></div></div>`;
+  view.querySelectorAll('[data-pi]').forEach((b) => (b.onclick = () => { const i = b.dataset.pi; f.interests = f.interests.includes(i) ? f.interests.filter((x) => x !== i) : [...f.interests, i]; b.classList.toggle('on'); }));
+  view.querySelectorAll('[data-ps]').forEach((r) => (r.oninput = () => { const v = +r.value; v ? (f.skills[r.dataset.ps] = v) : delete f.skills[r.dataset.ps]; $('#psv-' + r.dataset.ps).textContent = v; }));
+  $('#pSave').onclick = async () => {
+    Object.assign(f, { full_name: $('#pName').value, branch: $('#pBranch').value, year: +$('#pYear').value, availability: $('#pAvail').value, bio: $('#pBio').value, is_discoverable: $('#pDisc').checked });
+    $('#pSave').disabled = true;
+    try {
+      await rpc('save_profile', { p: f });
+      const { data } = await sb.from('profiles').select('*').eq('id', session.user.id).single(); me = data;
+      if (onboarding) { $('#side').classList.remove('hidden'); $('#menuBtn').classList.remove('hidden'); started = false; boot(); location.hash = 'assistant'; }
+      else { $('#pMsg').textContent = 'Saved'; $('#meName').textContent = me.full_name; cache.profiles = null; }
+    } catch (err) { $('#pMsg').textContent = err.message; }
+    $('#pSave').disabled = false;
+  };
+}
+}
+</script>
+</body>
+</html>
